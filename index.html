@@ -28,7 +28,7 @@
         /* 占位div，用来撑开body高度，等于图片的实际比例（减去滚动条宽度修复白色条） */
         .bg-holder {
             width: 100%;
-            height: calc((100vw - 17px) * 6220 / 8192); /* 调整后：减去预估滚动条宽度（17px），避免底部白色条 */
+            height: calc((100vw - 17px) * 6220 / 8192); /* 减去滚动条宽度（17px） */
         }
 
         #image-list {
@@ -37,7 +37,7 @@
             margin: 0 auto;
             max-width: 800px;
             background: transparent;
-            position: absolute; /* 绝对定位叠加在背景上，不影响高度撑开 */
+            position: absolute; /* 绝对定位叠加在背景上 */
             top: 0;
             left: 50%;
             transform: translateX(-50%); /* 居中对齐 */
@@ -48,7 +48,7 @@
             margin: 10px 0;
             cursor: pointer;
             text-align: center;
-            background: rgba(0, 0, 0, 0.3); /* 半透明背景，提高可读性，不遮挡背景 */
+            background: rgba(0, 0, 0, 0.3); /* 半透明背景 */
             padding: 10px;
             border-radius: 5px;
             transition: background 0.2s ease;
@@ -75,8 +75,10 @@
         #modal img {
             max-width: 90%;
             max-height: 70%;
-            transition: transform 0.3s ease;
-            object-fit: contain; /* 确保图片在模态中不裁剪 */
+            transition: transform 0.1s ease; /* 更快过渡，提升拖拽流畅度 */
+            object-fit: contain; /* 确保图片不裁剪 */
+            cursor: move; /* 拖拽时显示拖拽光标 */
+            user-select: none; /* 防止拖拽时选中文本 */
         }
 
         #close-btn {
@@ -138,7 +140,7 @@
                     li.addEventListener('click', () => showImage(file));
                     list.appendChild(li);
                 });
-                // 如果列表很长，确保 body 高度至少覆盖列表（防止列表超出背景）
+                // 如果列表很长，确保 body 高度至少覆盖列表
                 const listHeight = list.offsetHeight;
                 const bgHeight = document.querySelector('.bg-holder').offsetHeight;
                 if (listHeight > bgHeight) {
@@ -156,7 +158,7 @@
 
             // 清空上一张图片残留
             img.src = '';
-            img.style.transform = 'scale(1)';
+            img.style.transform = 'scale(1) translate(0, 0)';
 
             // 显示加载页面（空白白背景）
             loading.style.display = 'flex';
@@ -168,7 +170,7 @@
                 // 隐藏加载
                 loading.style.display = 'none';
 
-                // 改变背景为纯白（覆盖原背景）
+                // 改变背景为纯白
                 body.style.backgroundImage = 'none';
                 body.style.backgroundColor = 'white';
 
@@ -192,11 +194,18 @@
             const modal = document.getElementById('modal');
             const body = document.body;
             modal.style.display = 'none';
+            // 显式重置所有背景样式
             body.style.backgroundColor = 'white';
-            body.style.backgroundImage = 'ur[](https://b.dlozs.top/ElTshWhVMAA7XNm.jpg)';
+            body.style.backgroundImage = 'url(https://b.dlozs.top/ElTshWhVMAA7XNm.jpg)';
+            body.style.backgroundSize = '100% auto';
+            body.style.backgroundRepeat = 'no-repeat';
+            body.style.backgroundPosition = 'top center';
+            body.style.backgroundAttachment = 'scroll';
+            // 确保撑开高度正确
+            document.querySelector('.bg-holder').style.height = `calc((100vw - 17px) * 6220 / 8192)`;
         });
 
-        // 点击模态背景关闭（可选增强）
+        // 点击模态背景关闭
         document.getElementById('modal').addEventListener('click', (e) => {
             if (e.target === modal) {
                 document.getElementById('close-btn').click();
@@ -204,10 +213,58 @@
         });
 
         // 缩放滑块
-        document.getElementById('scale-slider').addEventListener('input', (e) => {
+        const slider = document.getElementById('scale-slider');
+        const img = document.getElementById('display-image');
+        slider.addEventListener('input', (e) => {
             const scale = e.target.value / 100;
-            const img = document.getElementById('display-image');
-            img.style.transform = `scale(${scale})`;
+            // 保留可能的 translate 变换
+            const currentTransform = img.style.transform.match(/translate\(([^)]+)\)/);
+            const translate = currentTransform ? currentTransform[1] : '0, 0';
+            img.style.transform = `scale(${scale}) translate(${translate})`;
+        });
+
+        // 鼠标滚轮缩放
+        img.addEventListener('wheel', (e) => {
+            e.preventDefault(); // 防止页面滚动
+            let scale = parseInt(slider.value);
+            // 滚轮向上(deltaY < 0)放大，向下缩小，步长10
+            scale = e.deltaY < 0 ? scale + 10 : scale - 10;
+            // 限制范围 50-200
+            scale = Math.max(50, Math.min(200, scale));
+            slider.value = scale; // 同步滑块
+            const currentTransform = img.style.transform.match(/translate\(([^)]+)\)/);
+            const translate = currentTransform ? currentTransform[1] : '0, 0';
+            img.style.transform = `scale(${scale / 100}) translate(${translate})`;
+        });
+
+        // 拖拽图片
+        let isDragging = false;
+        let startX, startY, translateX = 0, translateY = 0;
+
+        img.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // 防止拖拽时选中文本
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            img.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            const scale = slider.value / 100;
+            img.style.transform = `scale(${scale}) translate(${translateX}px, ${translateY}px)`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            img.style.cursor = 'move';
+        });
+
+        document.addEventListener('mouseleave', () => {
+            isDragging = false;
+            img.style.cursor = 'move';
         });
 
         // 窗口大小变化时，重新计算撑开高度（响应式）
