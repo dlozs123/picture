@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片网站</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: auto; /* 允许 body 高度自适应内容 */
+        }
+
+        body {
+            /* 背景图宽度拉满，高度自适应 */
+            background-image: url('https://b.dlozs.top/ElTshWhVMAA7XNm.jpg');
+            background-size: 100% auto;
+            background-repeat: no-repeat;
+            background-position: top center;
+            background-attachment: scroll;
+            background-color: white; /* 背景下方补白 */
+            color: white;
+            font-family: Arial, sans-serif;
+            transition: background 0.3s ease, background-color 0.3s ease;
+            position: relative;
+        }
+
+        /* 占位div，用来撑开body高度，等于图片的实际比例（减去滚动条宽度修复白色条） */
+        .bg-holder {
+            width: 100%;
+            height: calc((100vw - 17px) * 6220 / 8192); /* 调整后：减去预估滚动条宽度（17px），避免底部白色条 */
+        }
+
+        #image-list {
+            list-style: none;
+            padding: 20px;
+            margin: 0 auto;
+            max-width: 800px;
+            background: transparent;
+            position: absolute; /* 绝对定位叠加在背景上，不影响高度撑开 */
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%); /* 居中对齐 */
+            z-index: 1; /* 确保列表在背景之上 */
+        }
+
+        #image-list li {
+            margin: 10px 0;
+            cursor: pointer;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3); /* 半透明背景，提高可读性，不遮挡背景 */
+            padding: 10px;
+            border-radius: 5px;
+            transition: background 0.2s ease;
+        }
+
+        #image-list li:hover {
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        #modal img {
+            max-width: 90%;
+            max-height: 70%;
+            transition: transform 0.3s ease;
+            object-fit: contain; /* 确保图片在模态中不裁剪 */
+        }
+
+        #close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 30px;
+            cursor: pointer;
+            color: black;
+            z-index: 1001;
+        }
+
+        #scale-slider {
+            margin-top: 20px;
+            width: 200px;
+        }
+
+        #loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            color: black;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景撑开占位 -->
+    <div class="bg-holder"></div>
+
+    <!-- 图片列表，绝对定位叠加在背景上 -->
+    <ul id="image-list"></ul>
+
+    <div id="loading">加载中...</div>
+
+    <div id="modal">
+        <span id="close-btn">&times;</span>
+        <img id="display-image" src="" alt="图片">
+        <input type="range" id="scale-slider" min="50" max="200" value="100" step="10">
+    </div>
+
+    <script>
+        // 加载 list.json
+        fetch('list.json')
+            .then(response => response.json())
+            .then(files => {
+                const list = document.getElementById('image-list');
+                files.forEach(file => {
+                    const name = file.replace('.png', '');
+                    const li = document.createElement('li');
+                    li.textContent = name;
+                    li.addEventListener('click', () => showImage(file));
+                    list.appendChild(li);
+                });
+                // 如果列表很长，确保 body 高度至少覆盖列表（防止列表超出背景）
+                const listHeight = list.offsetHeight;
+                const bgHeight = document.querySelector('.bg-holder').offsetHeight;
+                if (listHeight > bgHeight) {
+                    document.body.style.minHeight = listHeight + 'px';
+                }
+            })
+            .catch(error => console.error('Error loading list.json:', error));
+
+        function showImage(filename) {
+            const url = 'https://d.dlozs.top/' + encodeURIComponent(filename);
+            const modal = document.getElementById('modal');
+            const img = document.getElementById('display-image');
+            const loading = document.getElementById('loading');
+            const body = document.body;
+
+            // 清空上一张图片残留
+            img.src = '';
+            img.style.transform = 'scale(1)';
+
+            // 显示加载页面（空白白背景）
+            loading.style.display = 'flex';
+
+            // 预加载图片
+            const preloadImg = new Image();
+            preloadImg.src = url;
+            preloadImg.onload = () => {
+                // 隐藏加载
+                loading.style.display = 'none';
+
+                // 改变背景为纯白（覆盖原背景）
+                body.style.backgroundImage = 'none';
+                body.style.backgroundColor = 'white';
+
+                // 显示模态
+                modal.style.display = 'flex';
+                img.src = url;
+
+                // 重置滑块
+                const slider = document.getElementById('scale-slider');
+                slider.value = 100;
+            };
+
+            preloadImg.onerror = () => {
+                loading.style.display = 'none';
+                alert('图片加载失败');
+            };
+        }
+
+        // 关闭模态（恢复背景）
+        document.getElementById('close-btn').addEventListener('click', () => {
+            const modal = document.getElementById('modal');
+            const body = document.body;
+            modal.style.display = 'none';
+            body.style.backgroundColor = 'white';
+            body.style.backgroundImage = 'ur[](https://b.dlozs.top/ElTshWhVMAA7XNm.jpg)';
+        });
+
+        // 点击模态背景关闭（可选增强）
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.getElementById('close-btn').click();
+            }
+        });
+
+        // 缩放滑块
+        document.getElementById('scale-slider').addEventListener('input', (e) => {
+            const scale = e.target.value / 100;
+            const img = document.getElementById('display-image');
+            img.style.transform = `scale(${scale})`;
+        });
+
+        // 窗口大小变化时，重新计算撑开高度（响应式）
+        window.addEventListener('resize', () => {
+            document.querySelector('.bg-holder').style.height = `calc((100vw - 17px) * 6220 / 8192)`;
+        });
+    </script>
+</body>
+</html>
