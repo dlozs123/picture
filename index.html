@@ -12,6 +12,7 @@
         }
 
         body {
+            /* 背景图宽度拉满，高度自适应 */
             background-image: url('https://b.dlozs.top/ElTshWhVMAA7XNm.jpg');
             background-size: 100% auto;
             background-repeat: no-repeat;
@@ -24,7 +25,7 @@
             position: relative;
         }
 
-        /* 占位div，撑开body高度 */
+        /* 占位div，用来撑开body高度，等于图片的实际比例（减去滚动条宽度修复白色条） */
         .bg-holder {
             width: 100%;
             height: calc((100vw - 17px) * 6220 / 8192); /* 减去滚动条宽度（17px） */
@@ -36,18 +37,18 @@
             margin: 0 auto;
             max-width: 800px;
             background: transparent;
-            position: absolute;
+            position: absolute; /* 绝对定位叠加在背景上 */
             top: 0;
             left: 50%;
-            transform: translateX(-50%);
-            z-index: 1;
+            transform: translateX(-50%); /* 居中对齐 */
+            z-index: 1; /* 确保列表在背景之上 */
         }
 
         #image-list li {
             margin: 10px 0;
             cursor: pointer;
             text-align: center;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.3); /* 半透明背景 */
             padding: 10px;
             border-radius: 5px;
             transition: background 0.2s ease;
@@ -69,17 +70,15 @@
             align-items: center;
             flex-direction: column;
             z-index: 1000;
-            touch-action: pinch-zoom; /* 允许触摸板/手机双指缩放 */
         }
 
         #modal img {
             max-width: 90%;
             max-height: 70%;
-            transition: transform 0.1s ease;
-            object-fit: contain;
-            cursor: move;
-            user-select: none;
-            touch-action: none; /* 图片上禁用默认缩放，交给JS处理 */
+            transition: transform 0.1s ease; /* 更快过渡，提升拖拽流畅度 */
+            object-fit: contain; /* 确保图片不裁剪 */
+            cursor: move; /* 拖拽时显示拖拽光标 */
+            user-select: none; /* 防止拖拽时选中文本 */
         }
 
         #close-btn {
@@ -114,9 +113,14 @@
     </style>
 </head>
 <body>
+    <!-- 背景撑开占位 -->
     <div class="bg-holder"></div>
+
+    <!-- 图片列表，绝对定位叠加在背景上 -->
     <ul id="image-list"></ul>
+
     <div id="loading">加载中...</div>
+
     <div id="modal">
         <span id="close-btn">&times;</span>
         <img id="display-image" src="" alt="图片">
@@ -136,6 +140,7 @@
                     li.addEventListener('click', () => showImage(file));
                     list.appendChild(li);
                 });
+                // 如果列表很长，确保 body 高度至少覆盖列表
                 const listHeight = list.offsetHeight;
                 const bgHeight = document.querySelector('.bg-holder').offsetHeight;
                 if (listHeight > bgHeight) {
@@ -151,39 +156,52 @@
             const loading = document.getElementById('loading');
             const body = document.body;
 
+            // 清空上一张图片残留
             img.src = '';
             img.style.transform = 'scale(1) translate(0, 0)';
 
+            // 显示加载页面（空白白背景）
             loading.style.display = 'flex';
 
+            // 预加载图片
             const preloadImg = new Image();
             preloadImg.src = url;
             preloadImg.onload = () => {
+                // 隐藏加载
                 loading.style.display = 'none';
+
+                // 改变背景为纯白
                 body.style.backgroundImage = 'none';
                 body.style.backgroundColor = 'white';
+
+                // 显示模态
                 modal.style.display = 'flex';
                 img.src = url;
-                document.getElementById('scale-slider').value = 100;
+
+                // 重置滑块
+                const slider = document.getElementById('scale-slider');
+                slider.value = 100;
             };
+
             preloadImg.onerror = () => {
                 loading.style.display = 'none';
                 alert('图片加载失败');
             };
         }
 
-        // 关闭模态
+        // 关闭模态（恢复背景）
         document.getElementById('close-btn').addEventListener('click', () => {
             const modal = document.getElementById('modal');
             const body = document.body;
             modal.style.display = 'none';
-            // 显式重置背景样式
+            // 显式重置所有背景样式
             body.style.backgroundColor = 'white';
             body.style.backgroundImage = 'url(https://b.dlozs.top/ElTshWhVMAA7XNm.jpg)';
             body.style.backgroundSize = '100% auto';
             body.style.backgroundRepeat = 'no-repeat';
             body.style.backgroundPosition = 'top center';
             body.style.backgroundAttachment = 'scroll';
+            // 确保撑开高度正确
             document.querySelector('.bg-holder').style.height = `calc((100vw - 17px) * 6220 / 8192)`;
         });
 
@@ -199,6 +217,7 @@
         const img = document.getElementById('display-image');
         slider.addEventListener('input', (e) => {
             const scale = e.target.value / 100;
+            // 保留可能的 translate 变换
             const currentTransform = img.style.transform.match(/translate\(([^)]+)\)/);
             const translate = currentTransform ? currentTransform[1] : '0, 0';
             img.style.transform = `scale(${scale}) translate(${translate})`;
@@ -206,11 +225,13 @@
 
         // 鼠标滚轮缩放
         img.addEventListener('wheel', (e) => {
-            e.preventDefault();
+            e.preventDefault(); // 防止页面滚动
             let scale = parseInt(slider.value);
+            // 滚轮向上(deltaY < 0)放大，向下缩小，步长10
             scale = e.deltaY < 0 ? scale + 10 : scale - 10;
+            // 限制范围 50-200
             scale = Math.max(50, Math.min(200, scale));
-            slider.value = scale;
+            slider.value = scale; // 同步滑块
             const currentTransform = img.style.transform.match(/translate\(([^)]+)\)/);
             const translate = currentTransform ? currentTransform[1] : '0, 0';
             img.style.transform = `scale(${scale / 100}) translate(${translate})`;
@@ -219,8 +240,9 @@
         // 拖拽图片
         let isDragging = false;
         let startX, startY, translateX = 0, translateY = 0;
+
         img.addEventListener('mousedown', (e) => {
-            e.preventDefault();
+            e.preventDefault(); // 防止拖拽时选中文本
             isDragging = true;
             startX = e.clientX - translateX;
             startY = e.clientY - translateY;
@@ -245,40 +267,7 @@
             img.style.cursor = 'move';
         });
 
-        // 双指缩放（触摸板和手机）
-        let initialDistance = 0;
-        img.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                initialDistance = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
-            }
-        });
-
-        img.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
-                e.preventDefault();
-                const touch1 = e.touches[0];
-                const touch2 = e.touches[1];
-                const currentDistance = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
-                let scale = parseInt(slider.value);
-                // 根据两指距离变化调整缩放
-                if (currentDistance > initialDistance) {
-                    scale += 10; // 放大
-                } else if (currentDistance < initialDistance) {
-                    scale -= 10; // 缩小
-                }
-                scale = Math.max(50, Math.min(200, scale));
-                slider.value = scale;
-                const currentTransform = img.style.transform.match(/translate\(([^)]+)\)/);
-                const translate = currentTransform ? currentTransform[1] : '0, 0';
-                img.style.transform = `scale(${scale / 100}) translate(${translate})`;
-                initialDistance = currentDistance; // 更新基准距离
-            }
-        });
-
-        // 窗口大小变化时，重新计算撑开高度
+        // 窗口大小变化时，重新计算撑开高度（响应式）
         window.addEventListener('resize', () => {
             document.querySelector('.bg-holder').style.height = `calc((100vw - 17px) * 6220 / 8192)`;
         });
